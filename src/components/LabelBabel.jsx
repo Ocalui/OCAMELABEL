@@ -26,6 +26,39 @@ const ACCENT_COLORS = {
 };
 
 // ═══════════════════════════════════════════════════════════════════════
+// FLUID LOGO SCALES — clamp(min, fluid, max) per MAGI × FORMAT
+// ═══════════════════════════════════════════════════════════════════════
+const LOGO_FLUID_SCALES = {
+  // [landscape, square, story]
+  0: ['clamp(120px, 16vw, 180px)', 'clamp(140px, 24vw, 240px)', 'clamp(100px, 28vw, 160px)'], // MELCHIOR
+  1: ['clamp(110px, 15vw, 170px)', 'clamp(130px, 22vw, 220px)', 'clamp(90px, 26vw, 150px)'],  // BALTHASAR
+  2: ['clamp(100px, 14vw, 160px)', 'clamp(120px, 20vw, 200px)', 'clamp(85px, 24vw, 140px)'],  // CASPAR
+};
+
+const getAdaptiveTracking = (variant, formato, teoria) => {
+  // OSCAR base: -0.04em with weight 900 (ultra-tight, fills frame)
+  const base = '-0.04em';
+  
+  // Story format = vertical space priority, tighten horizontal
+  if (formato === 'story') {
+    return variant.stacked ? '-0.02em' : '-0.06em';
+  }
+  
+  // Square format = balanced
+  if (formato === 'square') {
+    return variant.stacked ? '-0.03em' : base;
+  }
+  
+  // Landscape (default OSCAR behavior)
+  if (variant.outline) {
+    // Outline needs space for stroke visibility
+    return teoria === 2 ? '0.06em' : '0.04em';  // CASPAR ghost needs most
+  }
+  
+  return variant.stacked ? '-0.02em' : base;
+};
+
+// ═══════════════════════════════════════════════════════════════════════
 // MAGI PROFILES
 // ═══════════════════════════════════════════════════════════════════════
 const CONFIG_MAGI = [
@@ -33,22 +66,19 @@ const CONFIG_MAGI = [
     id: 'MELCHIOR', nombre: 'Estabilidad Céntrica',
     descripcion: 'Branding masivo y simétrico. Señal de fuerza fundacional.',
     fuente: 'font-black', layout: 'flex-col justify-center items-center',
-    escalaBranding: 'text-[140px] md:text-[165px]',
-    trackingBranding: 'tracking-tighter', opacidad: '1'
+    opacidad: '1'
   },
   {
     id: 'BALTHASAR', nombre: 'Asimetría Táctica',
     descripcion: 'Encabezados desplazados. Sistema activo en movimiento.',
     fuente: 'font-black', layout: 'justify-start items-center pl-24',
-    escalaBranding: 'text-[130px] md:text-[152px]',
-    trackingBranding: 'tracking-tighter', opacidad: '1'
+    opacidad: '1'
   },
   {
     id: 'CASPAR', nombre: 'Blueprint Minimal',
     descripcion: 'Identidad como marca de agua. Prioridad a datos.',
     fuente: 'font-black', layout: 'justify-center items-center',
-    escalaBranding: 'text-[120px] md:text-[140px]',
-    trackingBranding: 'tracking-[0.06em]', opacidad: '0.12'
+    opacidad: '0.12'
   }
 ];
 
@@ -109,21 +139,25 @@ const EXPORT_DIMS = {
 };
 
 // ═══════════════════════════════════════════════════════════════════════
-// LogoOCALUI — OSCAR-inspired: single wordmark system, variant-driven treatments
+// LogoOCALUI — OSCAR-inspired fluid system: single wordmark, variant-driven
 // ═══════════════════════════════════════════════════════════════════════
-const LogoOCALUI = ({ teoria, variant }) => {
+const LogoOCALUI = ({ teoria, variant, formato }) => {
   const magi  = CONFIG_MAGI[teoria];
   const ac    = ACCENT_COLORS[variant.barColor] || TOKENS.oro;
   const ghost = teoria === 2;
 
-  // OSCAR-inspired: ultra-tight negative tracking, full weight, fills frame
-  const spacing = variant.outline ? (ghost ? '0.06em' : '0.04em') : '-0.04em';
+  // Map formato to scale array index
+  const formatIndex = formato === 'landscape' ? 0 : formato === 'square' ? 1 : 2;
+  const fluidSize = LOGO_FLUID_SCALES[teoria][formatIndex];
+  const tracking = getAdaptiveTracking(variant, formato, teoria);
 
   const textStyle = useMemo(() => {
     const base = {
       display: 'inline-block',
+      fontSize: fluidSize,
       fontWeight: 900,
-      letterSpacing: spacing,
+      letterSpacing: tracking,
+      lineHeight: 0.82,
       transform: variant.skew ? `skewX(${variant.skew}deg)` : undefined,
     };
     if (variant.outline) {
@@ -137,7 +171,7 @@ const LogoOCALUI = ({ teoria, variant }) => {
       color: '#f5f5f9',
       filter: 'drop-shadow(0 8px 40px rgba(0,0,0,0.95))',
     };
-  }, [variant, ghost, ac, magi, spacing]);
+  }, [variant, ghost, ac, magi, fluidSize, tracking]);
 
   const aberrationStyle = variant.aberration ? {
     textShadow: `4px 0 ${ACCENT_COLORS.glitch}60, -4px 0 ${ACCENT_COLORS.aqua}60, 0 0 60px ${ac}18`
@@ -145,7 +179,7 @@ const LogoOCALUI = ({ teoria, variant }) => {
 
   return (
     <div
-      className={`relative z-20 ${magi.fuente} ${magi.escalaBranding} ${magi.trackingBranding} uppercase leading-[0.82] select-none px-[2%] py-[1%]`}
+      className={`relative z-20 ${magi.fuente} uppercase select-none px-[2%] py-[1%]`}
       style={aberrationStyle}
     >
       {variant.bar === 'under' && (
@@ -168,7 +202,7 @@ const LogoOCALUI = ({ teoria, variant }) => {
 
       <div style={textStyle}>
         {variant.stacked ? (
-          <div className="flex flex-col items-center leading-[0.82]">
+          <div className="flex flex-col items-center" style={{ lineHeight: 0.82 }}>
             <span>OCA</span>
             <span>LUI</span>
           </div>
@@ -228,7 +262,7 @@ const CapaHUD = ({ config, bits, variant }) => {
 
       <div className="absolute bottom-10 right-10 p-3 flex flex-col items-end gap-1">
         <span className="font-mono text-[8px] text-white/25 uppercase tracking-[0.5em]">SYS</span>
-        <span className="font-mono text-[9px] text-white/15 uppercase tracking-wider">V5.1W_READY</span>
+        <span className="font-mono text-[9px] text-white/15 uppercase tracking-wider">V5.2F_FLUID</span>
       </div>
 
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white/[0.06] text-5xl font-thin select-none">+</div>
@@ -317,7 +351,7 @@ const CanvasDespliegue = ({ config, bits, variant }) => {
           style={{ background: `radial-gradient(ellipse at 60% 40%, ${ac}08 0%, transparent 65%)` }}
         />
 
-        <LogoOCALUI teoria={config.teoria} variant={variant} />
+        <LogoOCALUI teoria={config.teoria} variant={variant} formato={config.formato} />
 
         <div className={`${pillarPos} z-30`}>
           {['CREATIVE', 'QUALITY', 'OPERATIONS'].map((pilar, i) => (
@@ -463,7 +497,7 @@ export default function LabelBabel() {
             </div>
             <div>
               <h1 className="text-base font-black text-white tracking-[0.45em] uppercase leading-none">OCALUI.ME</h1>
-              <p className="text-[9px] text-white/30 font-mono mt-1 tracking-[0.12em] uppercase">LABEL BABEL /// V5.1W</p>
+              <p className="text-[9px] text-white/30 font-mono mt-1 tracking-[0.12em] uppercase">LABEL BABEL /// V5.2F</p>
             </div>
           </div>
           <div className="bg-black/40 border border-white/5 px-4 py-2 rounded-sm flex items-center justify-between">
@@ -678,7 +712,7 @@ export default function LabelBabel() {
         <div className="no-export absolute top-8 right-8 flex flex-col items-end gap-2 opacity-20 select-none pointer-events-none">
           <div className="flex items-center gap-2.5">
             <Activity size={16} className="text-[#c4b087]"/>
-            <span className="text-xs font-mono text-white tracking-[0.5em] uppercase">V5.1W_READY</span>
+            <span className="text-xs font-mono text-white tracking-[0.5em] uppercase">V5.2F_FLUID</span>
           </div>
           <span className="text-[9px] font-mono tracking-[0.25em] uppercase" style={{ color: variantAccent }}>
             {CONFIG_MAGI[teoria].nombre} // {magiVariant?.id}
